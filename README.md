@@ -1,81 +1,84 @@
-# Nova Ecosystem: Development Tools
+# Nova Ecosystem DevTools
 
-This repository is a "factory," not a "product." Its sole purpose is to build, test, and publish the common, pre-built base images used for development (DevContainers) across all repositories in the `nova-ecosystem` organization.
+This repository hosts shared developer tooling, Docker images, and scripts used across the Nova Ecosystem organization.
 
-Centralizing these base images gives us two major advantages:
+## 🛠️ Nova CLI
 
-1.  **Speed:** DevContainer startup for any monorepo is nearly instant, as developers pull a pre-built image instead of building one from scratch.
-2.  **Consistency:** Every developer runs on the exact same set of tools and dependencies, eliminating "it works on my machine" issues.
+The **Nova CLI** (package: `nova-ecosystem-cli`) is our internal Python tool used to manage versioning, releases, and automation across our monorepos and microservices.
 
-## 📦 Published Images
+### Installation
 
-This repository builds and publishes the following images to the GitHub Container Registry (GHCR):
+Since this is an internal tool, we install it directly from the repository source. You do not need to configure a private registry.
 
-  * `ghcr.io/nova-ecosystem/dev-python:latest` (For API/Worker services)
-  * `ghcr.io/nova-ecosystem/dev-node:latest` (For App/Website services)
+**1. Install the latest version:**
+```bash
+# Note: The package is located in the 'nova-cli' subdirectory
+pip install "git+https://github.com/nova-ecosystem/ecosystem-devtools.git@main#subdirectory=nova-cli"
+````
+
+**2. Update to the latest version:**
+If a teammate pushes a fix, run this to update your local machine:
+
+```bash
+pip install --upgrade "git+https://github.com/nova-ecosystem/ecosystem-devtools.git@main#subdirectory=nova-cli"
+```
+
+### Usage
+
+**1. Patching a Service**
+Used when fixing bugs. Increments the patch version (e.g., `1.0.0` -\> `1.0.1`) for a specific service.
+
+```bash
+# Syntax: nova version patch <service_name>
+nova version patch auth
+nova version patch api
+```
+
+**2. Creating a Release**
+Used when shipping new features.
+Increments the Global version and aligns **all** services in the repository to the new version (e.g., `1.1.0`).
+
+```bash
+# Syntax: nova version release <minor|major>
+nova version release minor
+```
 
 -----
 
-## 🚀 Consumer Guide: How to Use These Images
+## 🐳 Shared Docker Images
 
-**For Developers working on Pillars (Hub, Agro, Finance):**
+We maintain standard development images to ensure consistency across all engineers' machines.
+These are automatically built and pushed to GHCR (GitHub Container Registry) whenever `docker/` files change.
 
-Do **not** clone this repository. Instead, in your pillar monorepo (e.g., `hub`), reference these images in your `.devcontainer/docker-compose.yml` file.
+| Image | Tag | Description |
+| :--- | :--- | :--- |
+| `ghcr.io/nova-ecosystem/dev-python` | `latest` | Python 3.10, Flask, Pytest, and common utilities. |
+| `ghcr.io/nova-ecosystem/dev-node` | `latest` | Node.js 18, npm, and Docusaurus support. |
 
-### Example: `hub/.devcontainer/docker-compose.yml`
+**Usage in `devcontainer.json`:**
 
-Notice the `image:` key is used instead of `build:`.
-
-```yaml
-version: '3.8'
-services:
-  app:
-    # Uses the pre-built Node.js dev image
-    image: ghcr.io/nova-ecosystem/dev-node:latest
-    volumes:
-      - ..:/workspace:cached
-    working_dir: /workspace/app
-    command: sleep infinity
-
-  api:
-    # Uses the pre-built Python dev image
-    image: ghcr.io/nova-ecosystem/dev-python:latest
-    volumes:
-      - ..:/workspace:cached
-    working_dir: /workspace/api
-    command: sleep infinity
+```json
+"image": "ghcr.io/nova-ecosystem/dev-python:latest"
 ```
 
----
+-----
 
-## 🛠️ Maintainer Guide: How to Develop This Repo
+## 👩‍💻 Contributing to DevTools
 
-**For DevOps Engineers modifying the base images:**
+### Developing the CLI
 
-This repository creates the foundation for everyone else. Since it cannot depend on itself, it uses a standard **Docker-in-Docker** environment for its own development.
+If you want to add new commands to the `nova` tool:
 
-### 1. Bootstrapping Your Environment
-1. Clone this repository.
-2. Open it in VS Code.
-3. When prompted, click **"Reopen in Container"**.
-   * *Note: This uses a generic `mcr.microsoft.com/devcontainers/base:ubuntu` image defined in this repo's `.devcontainer/` folder.*
+1.  Clone this repository.
+2.  Install the package in "editable" mode (changes are reflected immediately):
+    ```bash
+    cd nova-cli
+    pip install -e .
+    ```
+3.  Add your new module in `src/nova_cli/commands/`.
+4.  Register the command in `src/nova_cli/main.py`.
 
-### 2. Building & Testing Locally
-You can build the images locally to verify your changes before pushing.
+### Publishing Updates
 
-```bash
-# Build the Python image locally to test
-docker build -t test-python ./python
-
-# Build the Node image locally to test
-docker build -t test-node ./node
-````
-
-### 3\. Publishing New Versions
-
-Do not manually push images to GHCR from your laptop.
-
-1.  Commit your changes to the `main` branch.
-2.  The **GitHub Actions Workflow** (`publish-dev-images.yml`) will automatically trigger.
-3.  It will build the images and push them to `ghcr.io/nova-ecosystem/...`.
-4.  Other developers can pull the new updates by running `Dev Containers: Rebuild Container` in their repos.
+  * **Docker Images:** Push changes to the `docker/` folder to trigger a rebuild and publish to GHCR.
+  * **Nova CLI:** simply push changes to the `nova-cli/` folder on the `main` branch. Everyone using the "Git Install" method will receive the updates the next time they run the upgrade command or rebuild their DevContainer.
